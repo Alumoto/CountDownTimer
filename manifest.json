@@ -1,0 +1,15 @@
+{
+  "short_name": "SimpleCDT",
+  "name": "SimpleCountDownTimer",
+  "icons": [
+    {
+      "src": "./img/icon192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    }
+  ],
+  "start_url": "cdt.html",
+  "background_color": "#CDCDCD",
+  "display": "standalone",
+  "theme_color": "#000000"
+}
