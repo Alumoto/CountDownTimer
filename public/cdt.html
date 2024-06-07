@@ -44,11 +44,15 @@
         <label for="set_back_col">Backgroud Color</label> <input data-jscolor="{}" id="set_back_col" name="set_back_col" onInput="BackColorChange()"> <br>
         <label for="set_timer_fore_col">Timer ForeColor</label> <input data-jscolor="{}" id="set_timer_fore_col" name="set_timer_fore_col" onInput="TimerForeColorChange()"> <br>
         <label for="set_timer_back_col">Timer BackColor</label> <input data-jscolor="{alphaChannel:true, format:'hexa'}" id="set_timer_back_col" name="set_timer_back_col" onInput="TimerBackColorChange()"> <br>
+        <h4>Remote controll</h4><br>
+        <input type="text" id="set_room_url_txt" name="set_room_url_txt" readonly/> <button onclick="copyToClipboard()">Copy</button>
+        <br><button id="set_room_url_btn" name="set_room_url_btn" onclick="ClickGenerateButton()">Generate</button>
       </div>
     </div>
   </div>
 </body>
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jscolor/2.5.2/jscolor.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <script type='text/javascript' defer src='script.js' ></script>
 </html>

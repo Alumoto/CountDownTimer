@@ -12,52 +12,93 @@ var targetTime;
 var nowTime;
 
 var isOpenSetting = false;
-var backGroundColor = "#ffffff";
+var backGroundColor = "#000000";
 var timerForeColor = "#ff0000";
-var timerBackColor = "#ffffff";
+var timerBackColor = "#000000";
 var fontSize = 15;
 
+var roomId;
+
+var socket = io();
+var isConnected = false;
+
 $("#set_font_size").on('input', () => {
-  fontSize = $("#set_font_size").val();
+  if(isConnected){
+    socket.emit("settings", {
+      room: roomId,
+      settings: "fontsize",
+      fontsize: $("#set_font_size").val()
+    });
+  }else{
+    fontSize = $("#set_font_size").val();
+    $("#fontsize").text(fontSize);
+    $(".countdown").css("font-size", fontSize+"vw");
+  }
+}); 
+
+window.onload = ()=>{
+  var queries = GetUrlQueries();
+  if(queries["room"]){
+    roomId = queries["room"];
+    JoinRoom();
+  }
+  InitSettings();
+  ResetTime();
+}
+
+const InitSettings = () => {
   $("#fontsize").text(fontSize);
   $(".countdown").css("font-size", fontSize+"vw");
-});
-
-const GetUrlParam = () => {
-
-}
-
-const SetUrlParam = () => {
-
-}
-
-const onload = ()=>{
-  $("#fontsize").text(fontSize);
 
   $("#set_min").val(setMin);
   $("#set_sec").val(setSec);
   $("#set_ms").val(setMs);
 
   $("#set_back_col").val(backGroundColor);
+  $("body").css("background-color", backGroundColor);
   $("#set_timer_fore_col").val(timerForeColor);
+  $(".countdown").css("color", timerForeColor);
   $("#set_timer_back_col").val(timerBackColor);
-
-  ResetTime();
+  $(".countdown").css("background-color", timerBackColor);
 }
 
 const BackColorChange = () => {
-  backGroundColor = $("#set_back_col").val();
-  $("body").css("background-color", backGroundColor);
+  if(isConnected){
+    socket.emit("settings", {
+      room: roomId,
+      settings: "backGroundColor",
+      backGroundColor: $("#set_back_col").val()
+    });
+  }else{
+    backGroundColor = $("#set_back_col").val();
+    $("body").css("background-color", backGroundColor);
+  }
 }
 
 const TimerForeColorChange = () => {
-  timerForeColor = $("#set_timer_fore_col").val();
-  $(".countdown").css("color", timerForeColor);
+  if(isConnected){
+    socket.emit("settings", {
+      room: roomId,
+      settings: "timerForeColor",
+      timerForeColor: $("#set_timer_fore_col").val()
+    });
+  }else{
+    timerForeColor = $("#set_timer_fore_col").val();
+    $(".countdown").css("color", timerForeColor);
+  }
 }
 
 const TimerBackColorChange = () => {
-  timerBackColor = $("#set_timer_back_col").val();
-  $(".countdown").css("background-color", timerBackColor);
+  if(isConnected){
+    socket.emit("settings", {
+      room: roomId,
+      settings: "timerBackColor",
+      timerBackColor: $("#set_timer_back_col").val()
+    });
+  }else{
+    timerBackColor = $("#set_timer_back_col").val();
+    $(".countdown").css("background-color", timerBackColor);
+  }
 }
 
 const countdown = ()=>{
@@ -114,14 +155,10 @@ const countdown = ()=>{
 setInterval(countdown, 1);
 
 function SetTime(m, s, ms){
-
-
   $('.js-countdown-min').text(String(m).padStart(2, '0'));
   $('.js-countdown-sec').text(String(s).padStart(2, '0'));
   $('.js-countdown-ms').text(String(ms).padStart(2, '0'));
 }
-
-window.onload = onload;
 
 const ClickResetArea = () => {
   ResetTimer();
@@ -139,17 +176,50 @@ const ClickApplyButton = () => {
   ResetTimer();
 }
 
+const ClickGenerateButton = () => {
+  if(!roomId){
+    roomId = crypto.randomUUID();
+    var query = { "room":roomId };
+    SetUrlQueries(query)
+    JoinRoom();
+  }
+}
+
 const ResetTimer = () => {
-  resetFlag = true;
+  if(isConnected){
+    socket.emit("controll", {
+      room: roomId,
+      controll: "reset",
+      setMin: $("#set_min").val(),
+      setSec: $("#set_sec").val(),
+      setMs: $("#set_ms").val(),
+    });
+  }else{
+    resetFlag = true;
+  }
 }
 
 const ToggleTimer = () => {
   if(runFlag){
-    stopFlag = true;
+    if(isConnected){
+      socket.emit("controll", {
+        room: roomId,
+        controll: "stop"
+      });
+    }else{
+      stopFlag = true;
+    }
   }else{
-    nowTime = targetTime;
-    if(nowTime > 0){
-      startFlag = true;
+    if(isConnected){
+      socket.emit("controll", {
+        room: roomId,
+        controll: "start"
+      });
+    }else{
+      nowTime = targetTime;
+      if(nowTime > 0){
+        startFlag = true;
+      }
     }
   }
 }
@@ -183,3 +253,107 @@ const GetSettingTime = () => {
   setSec = $("#set_sec").val();
   setMs = $("#set_ms").val();
 }
+
+function GetUrlQueries() {
+  var queryStr = window.location.search.slice(1);  // 文頭?を除外
+  queries = {};
+
+  if (!queryStr) {
+    return queries;
+  }
+
+  queryStr.split('&').forEach(function(queryStr) {
+    var queryArr = queryStr.split('=');
+    queries[queryArr[0]] = queryArr[1];
+  });
+  
+  return queries;
+}
+
+function SetUrlQueries(dict){
+  var url = new URL(location.href);
+  for (key in dict){
+    url.searchParams.set(key, dict[key]);
+  }
+  window.history.replaceState(null, null, url);
+}
+
+function copyToClipboard() {
+  navigator.clipboard.writeText($("#set_room_url_txt").val());
+  $("#set_room_url_txt").select();
+}
+
+const JoinRoom = () => {
+  var url = window.location.href;
+  $("#set_room_url_txt").val(url);
+  $("#set_room_url_btn").prop("disabled", true);
+  socket.emit('join', {
+    room: roomId,
+    setMin: setMin,
+    setSec: setSec,
+    setMs: setMs,
+    backGroundColor: backGroundColor,
+    timerForeColor: timerForeColor,
+    timerBackColor: timerBackColor,
+    fontSize: fontSize
+  });
+}
+
+socket.on("hello", function(msg){
+  setMin = msg.setMin;
+  setSec = msg.setSec;
+  setMs = msg.setMs;
+  backGroundColor = msg.backGroundColor;
+  timerBackColor = msg.timerBackColor;
+  timerForeColor = msg.timerForeColor;
+  fontSize = msg.fontSize;
+  InitSettings();
+  isConnected = true;
+});
+
+socket.on('controll',function(msg){
+  switch(msg.controll){
+    case 'start':
+        nowTime = targetTime;
+        if(nowTime > 0){
+          startFlag = true;
+        }
+      break;
+    case 'stop':
+      stopFlag = true;
+      break;
+    case 'reset':
+      $("#set_min").val(msg.setMin);
+      $("#set_sec").val(msg.setSec);
+      $("#set_ms").val(msg.setMs);
+      resetFlag = true;
+      break;
+  }
+});
+
+socket.on('settings', function(msg){
+  switch(msg.settings){
+    case 'fontsize':
+      fontSize = msg.fontsize;
+      $("#set_font_size").val(fontSize);
+      $("#fontsize").text(fontSize);
+      $(".countdown").css("font-size", fontSize+"vw");
+      break;
+    case "backGroundColor":
+      backGroundColor = msg.backGroundColor;
+      $("#set_back_col").val(backGroundColor);
+      $("body").css("background-color", backGroundColor);
+      break;
+    case "timerForeColor":
+      timerForeColor = msg.timerForeColor;
+      $("#set_timer_fore_col").val(timerForeColor);
+      $(".countdown").css("color", timerForeColor);
+      break;
+    case "timerBackColor":
+      timerBackColor = msg.timerBackColor;
+      $("#set_timer_back_col").val(timerBackColor);
+      $(".countdown").css("background-color", timerBackColor);
+      break;
+  }
+});
+    

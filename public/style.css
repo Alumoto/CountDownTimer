@@ -99,3 +99,7 @@ h4 {
 .setting_content {
   padding-left: 5%;
 }
+
+#set_room_url_txt {
+  width: 50%;
+}
