@@ -11,6 +11,8 @@ var startDate;
 var targetTime;
 var nowTime;
 
+var isEnableSound = true;
+
 var isOpenSetting = false;
 var backGroundColor = "#000000";
 var timerForeColor = "#ff0000";
@@ -21,6 +23,28 @@ var roomId;
 
 var socket = io();
 var isConnected = false;
+
+// Web Audio API の初期化
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+const playBeep = () => {
+  const oscillator = audioContext.createOscillator(); // オシレーター作成
+  const gainNode = audioContext.createGain(); // ゲイン（音量）ノード作成
+
+  oscillator.type = "sawtooth"; // 波形を正弦波に設定
+  oscillator.frequency.setValueAtTime(2000, audioContext.currentTime); // 1000Hzの音を設定
+
+  gainNode.gain.setValueAtTime(1, audioContext.currentTime); // 音量を1（最大）
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.06); // 0.1秒後にほぼ無音に
+
+  oscillator.connect(gainNode); // オシレーターをゲインに接続
+  gainNode.connect(audioContext.destination); // ゲインをオーディオ出力に接続
+
+  oscillator.start(); // 音の再生
+  oscillator.stop(audioContext.currentTime + 0.06); // 0.1秒後に停止
+};
+
+// 1秒ごとにビープ音を鳴らす
+var lastSecond = -1; // 直前の秒を記録
 
 $("#set_font_size").on('input', () => {
   if(isConnected){
@@ -60,6 +84,7 @@ const InitSettings = () => {
   $(".countdown").css("color", timerForeColor);
   $("#set_timer_back_col").val(timerBackColor);
   $(".countdown").css("background-color", timerBackColor);
+  $("#set_enable_sound").prop('checked', isEnableSound);
 }
 
 const BackColorChange = () => {
@@ -136,17 +161,22 @@ const countdown = ()=>{
     resetFlag = false;
   }
 
-  if(runFlag){
-    var nowSubTime= new Date().getTime() - startDate.getTime();
-    if(nowSubTime != 0){
+  if (runFlag) {
+    var nowSubTime = new Date().getTime() - startDate.getTime();
+    if (nowSubTime != 0) {
       nowTime = startTime - nowSubTime;
-      if(nowTime >= 0) {
-    
-      var min = Math.floor(nowTime / 1000 / 60); //分
-      var sec = Math.floor(nowTime / 1000 % 60); //秒
-      var ms = Math.floor((nowTime % 1000) / 10); //ミリ秒
+      if (nowTime >= 0) {
+        var min = Math.floor(nowTime / 1000 / 60); // 分
+        var sec = Math.floor(nowTime / 1000 % 60); // 秒
+        var ms = Math.floor((nowTime % 1000) / 10); // ミリ秒
 
-      SetTime(min, sec, ms);
+        // 1秒ごとに音を鳴らす
+        if (sec !== lastSecond) {
+          lastSecond = sec;
+          if(isEnableSound) playBeep();
+        }
+
+        SetTime(min, sec, ms);
       }
     }
   }
@@ -183,6 +213,10 @@ const ClickGenerateButton = () => {
     SetUrlQueries(query)
     JoinRoom();
   }
+}
+
+const ToggleEnableSound = () => {
+  isEnableSound = $("#set_enable_sound").prop('checked');
 }
 
 const ResetTimer = () => {

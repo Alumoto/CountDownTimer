@@ -44,6 +44,8 @@
         <label for="set_back_col">Backgroud Color</label> <input data-jscolor="{}" id="set_back_col" name="set_back_col" onInput="BackColorChange()"> <br>
         <label for="set_timer_fore_col">Timer ForeColor</label> <input data-jscolor="{}" id="set_timer_fore_col" name="set_timer_fore_col" onInput="TimerForeColorChange()"> <br>
         <label for="set_timer_back_col">Timer BackColor</label> <input data-jscolor="{alphaChannel:true, format:'hexa'}" id="set_timer_back_col" name="set_timer_back_col" onInput="TimerBackColorChange()"> <br>
+        <h4>Sound Setting</h4><br>
+        <label for="set_enable_sound">Enable Sound</label><input type="checkbox" id="set_enable_sound" name="set_enable_sound" onInput="ToggleEnableSound()"/><br>
         <h4>Remote controll</h4><br>
         <input type="text" id="set_room_url_txt" name="set_room_url_txt" readonly/> <button onclick="copyToClipboard()">Copy</button>
         <br><button id="set_room_url_btn" name="set_room_url_btn" onclick="ClickGenerateButton()">Generate</button>
