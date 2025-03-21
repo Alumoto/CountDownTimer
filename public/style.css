@@ -37,6 +37,10 @@ body {
   font-size: 15vw;
   user-select: none;
   flex-wrap: nowrap;
+  transform: translateZ(0);
+  /* サブピクセルレンダリング対策 */
+  -webkit-font-smoothing: antialiased;
+  /* アンチエイリアスの適用 */
 }
 
 span {
