@@ -85,9 +85,10 @@ span{
   background-color: rgb(185, 185, 185);
   position:absolute;
   display: none;
-  top: 60vh;
+  overflow: auto;
+  top: 50vh;
   width: 70vw;
-  height: 35vh;
+  height: 50vh;
 }
 
 h4 {
@@ -95,7 +96,9 @@ h4 {
 }
 
 .setting_content{
-  padding-left: 5%;
+  padding-left: 5vw;
+  padding-top: 5vh;
+  padding-bottom: 5vh;
 }
 
 #set_room_url_txt{

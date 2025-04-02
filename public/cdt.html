@@ -30,25 +30,47 @@
       <div class="setting_area" onclick="ClickSettingArea()"><span>Open Setting</span></div>
     </div>
     <div class="setting_window"> 
-      <div class="setting_title"><span>Settings</span></div>
       <div class="setting_content">
-        <h4>Timer Setting</h4> <span></span><br>
-        <input type="number" id="set_min" name="set_min" min="0" max="999"/><label for="set_min">min</label>
-        <input type="number" id="set_sec" name="set_sec" min="0" max="59"/><label for="set_sec">sec</label>
-        <input type="number" id="set_ms" name="set_ms" min="0" max="99"/><label for="set_ms">ms</label>
-        <button id="set_time_apply" name="set_time_apply" onclick="ClickApplyButton()">Apply(Reset)</button>
+        <h4>タイマー設定</h4> <span></span><br>
+        <input class="input_time_number" type="number" id="set_min" name="set_min" min="0" max="999"/><label for="set_min">min</label>
+        <input class="input_time_number" type="number" id="set_sec" name="set_sec" min="0" max="59"/><label for="set_sec">sec</label>
+        <input class="input_time_number" type="number" id="set_ms" name="set_ms" min="0" max="99"/><label for="set_ms">ms</label>
+        <button id="set_time_apply" name="set_time_apply" onclick="ClickApplyButton()">適用(リセット)</button>
         <br>
-        <label for="set_font_size">Font Size</label><br>
+        <label for="set_font_size">タイマーフォントサイズ</label><br>
         <input type="range" id="set_font_size" name="set_font_size" min="0.1" max="20" step="0.1" /><span id="fontsize"></span><br>
-        <h4>Color Setting</h4><br>
-        <label for="set_back_col">Backgroud Color</label> <input data-jscolor="{}" id="set_back_col" name="set_back_col" onInput="BackColorChange()"> <br>
-        <label for="set_timer_fore_col">Timer ForeColor</label> <input data-jscolor="{}" id="set_timer_fore_col" name="set_timer_fore_col" onInput="TimerForeColorChange()"> <br>
-        <label for="set_timer_back_col">Timer BackColor</label> <input data-jscolor="{alphaChannel:true, format:'hexa'}" id="set_timer_back_col" name="set_timer_back_col" onInput="TimerBackColorChange()"> <br>
-        <h4>Sound Setting</h4><br>
-        <label for="set_enable_sound">Enable Sound</label><input type="checkbox" id="set_enable_sound" name="set_enable_sound" onInput="ToggleEnableSound()"/><br>
-        <h4>Remote controll</h4><br>
-        <input type="text" id="set_room_url_txt" name="set_room_url_txt" readonly/> <button onclick="copyToClipboard()">Copy</button>
-        <br><button id="set_room_url_btn" name="set_room_url_btn" onclick="ClickGenerateButton()">Generate</button>
+        <h4>カラー設定</h4><br>
+        <label for="set_back_col">背景色</label> <input data-jscolor="{}" id="set_back_col" name="set_back_col" onInput="BackColorChange()"> <br>
+        <label for="set_timer_fore_col">タイマー文字色</label> <input data-jscolor="{}" id="set_timer_fore_col" name="set_timer_fore_col" onInput="TimerForeColorChange()"> <br>
+        <label for="set_timer_back_col">タイマー背景色</label> <input data-jscolor="{alphaChannel:true, format:'hexa'}" id="set_timer_back_col" name="set_timer_back_col" onInput="TimerBackColorChange()"> <br>
+        <h4>サウンド設定</h4><br>
+        <label for="set_enable_sound">カウント音を有効化</label><input type="checkbox" id="set_enable_sound" name="set_enable_sound" onInput="ToggleEnableSound()"/><br>
+        <div>
+          <label>波形:</label>
+          <select id="beep_waveform">
+            <option value="sine">Sine</option>
+            <option value="square">Square</option>
+            <option value="sawtooth">Sawtooth</option>
+            <option value="triangle">Triangle</option>
+          </select>
+        </div>
+        <div>
+          <label>周波数</label><br>
+          <input type="range" id="beep_frequency" min="100" max="5000" value="2000"><label><span id="beep_frequency_value">2000</span> Hz</label>
+        </div>
+        <div>
+          <label>長さ</label><br>
+          <input type="range" id="beep_duration" min="10" max="500" value="60"><label><span id="beep_duration_value">0.06</span> 秒</label>
+        </div>
+        <div>
+          <label>フェード</label><br>
+          <input type="range" id="beep_feed" min="10" max="500" value="60"><label><span id="beep_feed_value">0.06</span> 秒</label>
+        </div>
+
+        <h4>リモートコントロール設定</h4><br>
+        <span>同じルームURLにアクセスすると、タイマー操作や設定を同期することができます。</span><br>
+        <input type="text" id="set_room_url_txt" name="set_room_url_txt" readonly/> <button onclick="copyToClipboard()">コピー</button>
+        <br><button id="set_room_url_btn" name="set_room_url_btn" onclick="ClickGenerateButton()">ルームURL生成</button>
       </div>
     </div>
   </div>

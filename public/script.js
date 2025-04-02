@@ -11,7 +11,11 @@ var startDate;
 var targetTime;
 var nowTime;
 
-var isEnableSound = true;
+var isEnableSound = false;
+var beepWaveform = "sine";
+var beepFrequency = 2000;
+var beepDuration = 0.06;
+var beepFeed = 0.06;
 
 var isOpenSetting = false;
 var backGroundColor = "#000000";
@@ -27,20 +31,20 @@ var isConnected = false;
 // Web Audio API の初期化
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 const playBeep = () => {
-  const oscillator = audioContext.createOscillator(); // オシレーター作成
-  const gainNode = audioContext.createGain(); // ゲイン（音量）ノード作成
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
 
-  oscillator.type = "sawtooth"; // 波形を正弦波に設定
-  oscillator.frequency.setValueAtTime(2000, audioContext.currentTime); // 1000Hzの音を設定
+  oscillator.type = beepWaveform;
+  oscillator.frequency.setValueAtTime(beepFrequency, audioContext.currentTime);
 
-  gainNode.gain.setValueAtTime(1, audioContext.currentTime); // 音量を1（最大）
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.06); // 0.1秒後にほぼ無音に
+  gainNode.gain.setValueAtTime(1, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + beepFeed);
 
-  oscillator.connect(gainNode); // オシレーターをゲインに接続
-  gainNode.connect(audioContext.destination); // ゲインをオーディオ出力に接続
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
 
-  oscillator.start(); // 音の再生
-  oscillator.stop(audioContext.currentTime + 0.06); // 0.1秒後に停止
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + beepDuration);
 };
 
 // 1秒ごとにビープ音を鳴らす
@@ -218,6 +222,27 @@ const ClickGenerateButton = () => {
 const ToggleEnableSound = () => {
   isEnableSound = $("#set_enable_sound").prop('checked');
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+  document.getElementById("beep_waveform").addEventListener("change", function () {
+    beepWaveform = this.value;
+  });
+
+  document.getElementById("beep_frequency").addEventListener("input", function () {
+    beepFrequency = this.value;
+    document.getElementById("beep_frequency_value").textContent = beepFrequency;
+  });
+
+  document.getElementById("beep_duration").addEventListener("input", function () {
+    beepDuration = this.value / 1000;
+    document.getElementById("beep_duration_value").textContent = beepDuration;
+  });
+
+  document.getElementById("beep_feed").addEventListener("input", function () {
+    beepDuration = this.value / 1000;
+    document.getElementById("beep_feed_value").textContent = beepDuration;
+  });
+});
 
 const ResetTimer = () => {
   if(isConnected){
