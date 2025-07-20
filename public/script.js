@@ -217,6 +217,14 @@ const ClickGenerateButton = () => {
     SetUrlQueries(query)
     JoinRoom();
   }
+
+   const qrArea = document.getElementById('qrcode');
+    qrArea.innerHTML = ""; // すでにあるQRを消す
+    new QRCode(qrArea, {
+    text: window.location.href,
+    width: 128,
+    height: 128
+  });
 }
 
 const ToggleEnableSound = () => {
@@ -368,6 +376,11 @@ socket.on("hello", function(msg){
   fontSize = msg.fontSize;
   InitSettings();
   isConnected = true;
+
+  nowTime = msg.remainTime;
+  if(msg.isStart && nowTime > 0){
+    startFlag = true;
+  }
 });
 
 socket.on('controll',function(msg){

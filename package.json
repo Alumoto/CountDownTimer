@@ -1,8 +1,9 @@
 {
   "name": "countdowntimerhtml",
   "version": "1.0.0",
-  "main": "script.js",
+  "main": "scripts.js",
   "scripts": {
+      "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -12,7 +13,7 @@
   "dependencies": {
     "countdowntimerhtml": "file:",
     "ejs": "^3.1.10",
-    "express": "^4.19.2",
+    "express": "^5.1.0",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.7.5",
     "socketio": "^1.0.0"

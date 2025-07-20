@@ -110,3 +110,7 @@ h4 {
 #set_room_url_txt {
   width: 50%;
 }
+
+#qrcode {
+  margin-top: 10px;
+}

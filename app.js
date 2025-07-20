@@ -42,6 +42,15 @@ io.on('connection', function (socket) {
     }else{
       store = store.map(p => p.room === msg.room ? {...p, count: roomInfo.count + 1} : p);
     }
+
+    var now = Date.now();
+    var elapsed = 0;
+    if(roomInfo.isStart){
+      elapsed = now - roomInfo.startTime;
+    }
+    var totalSetTime = roomInfo.setMin * 60 * 1000 + roomInfo.setSec * 1000 + roomInfo.setMs * 10;
+    var remainTime = Math.max(totalSetTime - elapsed, 0);
+
     io.to(msg.room).emit('hello', {
       room: roomInfo.room,
       setMin: roomInfo.setMin,
@@ -52,7 +61,8 @@ io.on('connection', function (socket) {
       backGroundColor: roomInfo.backGroundColor,
       timerForeColor: roomInfo.timerForeColor,
       timerBackColor: roomInfo.timerBackColor,
-      fontSize: roomInfo.fontSize
+      fontSize: roomInfo.fontSize,
+      remainTime: remainTime 
     });
   });
 
