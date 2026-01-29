@@ -429,3 +429,20 @@ socket.on('settings', function(msg){
   }
 });
     
+document.addEventListener("keydown", (e) => {
+  switch (e.code) {
+    case "KeyS":
+      OpenSettings();
+      break;
+
+    case "KeyR":
+      ResetTimer();
+      break;
+
+    case "Space":
+      e.preventDefault(); // スクロール防止
+      ToggleTimer();
+      // 処理
+      break;
+  }
+});
