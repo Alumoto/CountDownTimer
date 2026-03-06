@@ -1,7 +1,7 @@
-var startFlag= false;;
-var stopFlag= false;;
-var continueFlag= false;;
-var resetFlag= false;
+var startFlag = false;
+var stopFlag = false;
+var continueFlag = false;
+var resetFlag = false;
 var runFlag = false;
 var setMin = 0;
 var setSec = 0;
@@ -27,9 +27,13 @@ var roomId;
 
 var socket = io();
 var isConnected = false;
+var heartbeatTimer = null;
+
+var directInputBuffer = "000000";
 
 // Web Audio API の初期化
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
 const playBeep = () => {
   const oscillator = audioContext.createOscillator();
   const gainNode = audioContext.createGain();
@@ -48,35 +52,66 @@ const playBeep = () => {
 };
 
 // 1秒ごとにビープ音を鳴らす
-var lastSecond = -1; // 直前の秒を記録
+var lastSecond = -1;
 
-$("#set_font_size").on('input', () => {
-  if(isConnected){
+function startHeartbeat() {
+  stopHeartbeat();
+
+  if (!roomId) return;
+
+  heartbeatTimer = setInterval(() => {
+    if (socket.connected && roomId) {
+      socket.emit("heartbeat", { room: roomId });
+    }
+  }, 30000);
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+function syncRunningTimerFromRemain(remainTime) {
+  nowTime = Math.max(Number(remainTime || 0), 0);
+  startTime = nowTime;
+  startDate = new Date();
+  continueFlag = true;
+  runFlag = nowTime > 0;
+  startFlag = false;
+  stopFlag = false;
+}
+
+$("#set_font_size").on("input", () => {
+  if (isConnected) {
     socket.emit("settings", {
       room: roomId,
       settings: "fontsize",
-      fontsize: $("#set_font_size").val()
+      fontsize: $("#set_font_size").val(),
     });
-  }else{
+  } else {
     fontSize = $("#set_font_size").val();
     $("#fontsize").text(fontSize);
-    $(".countdown").css("font-size", fontSize+"vw");
+    $(".countdown").css("font-size", fontSize + "vw");
   }
-}); 
+});
 
-window.onload = ()=>{
+window.onload = () => {
   var queries = GetUrlQueries();
-  if(queries["room"]){
+
+  if (queries["room"]) {
     roomId = queries["room"];
     JoinRoom();
+  } else {
+    InitSettings();
+    ResetTime();
   }
-  InitSettings();
-  ResetTime();
-}
+};
 
 const InitSettings = () => {
   $("#fontsize").text(fontSize);
-  $(".countdown").css("font-size", fontSize+"vw");
+  $(".countdown").css("font-size", fontSize + "vw");
 
   $("#set_min").val(setMin);
   $("#set_sec").val(setSec);
@@ -88,148 +123,205 @@ const InitSettings = () => {
   $(".countdown").css("color", timerForeColor);
   $("#set_timer_back_col").val(timerBackColor);
   $(".countdown").css("background-color", timerBackColor);
-  $("#set_enable_sound").prop('checked', isEnableSound);
-}
+  $("#set_enable_sound").prop("checked", isEnableSound);
+};
 
 const BackColorChange = () => {
-  if(isConnected){
+  if (isConnected) {
     socket.emit("settings", {
       room: roomId,
       settings: "backGroundColor",
-      backGroundColor: $("#set_back_col").val()
+      backGroundColor: $("#set_back_col").val(),
     });
-  }else{
+  } else {
     backGroundColor = $("#set_back_col").val();
     $("body").css("background-color", backGroundColor);
   }
-}
+};
 
 const TimerForeColorChange = () => {
-  if(isConnected){
+  if (isConnected) {
     socket.emit("settings", {
       room: roomId,
       settings: "timerForeColor",
-      timerForeColor: $("#set_timer_fore_col").val()
+      timerForeColor: $("#set_timer_fore_col").val(),
     });
-  }else{
+  } else {
     timerForeColor = $("#set_timer_fore_col").val();
     $(".countdown").css("color", timerForeColor);
   }
-}
+};
 
 const TimerBackColorChange = () => {
-  if(isConnected){
+  if (isConnected) {
     socket.emit("settings", {
       room: roomId,
       settings: "timerBackColor",
-      timerBackColor: $("#set_timer_back_col").val()
+      timerBackColor: $("#set_timer_back_col").val(),
     });
-  }else{
+  } else {
     timerBackColor = $("#set_timer_back_col").val();
     $(".countdown").css("background-color", timerBackColor);
   }
+};
+
+function quantizeToDisplayUnit(ms) {
+  return Math.max(Math.floor(ms / 10) * 10, 0);
 }
 
-const countdown = ()=>{
-  if(nowTime < 0){
+const countdown = () => {
+  if (nowTime < 0) {
     nowTime = 0;
     stopFlag = true;
   }
 
-  if(startFlag){
-    if(!runFlag){
-        if(!continueFlag){
-            //初回
-            continueFlag = true;
-            startTime = targetTime;
-        }
-        startDate = new Date();
-        runFlag = true;
+  if (startFlag) {
+    if (!runFlag) {
+      if (!continueFlag) {
+        continueFlag = true;
+        startTime = targetTime;
+      }
+      startDate = new Date();
+      runFlag = true;
     }
     startFlag = false;
   }
-  
-  if(stopFlag){
+
+  if (stopFlag) {
     startTime = nowTime;
     runFlag = false;
     stopFlag = false;
   }
 
-  if(resetFlag){
+  if (resetFlag) {
     nowTime = targetTime;
     runFlag = false;
     continueFlag = false;
     GetSettingTime();
     ResetTime();
     SetTime(setMin, setSec, setMs);
+    syncDirectInputBufferFromCurrentTime();
     resetFlag = false;
   }
 
   if (runFlag) {
     var nowSubTime = new Date().getTime() - startDate.getTime();
     if (nowSubTime != 0) {
-      nowTime = startTime - nowSubTime;
+      nowTime = quantizeToDisplayUnit(startTime - nowSubTime);
       if (nowTime >= 0) {
-        var min = Math.floor(nowTime / 1000 / 60); // 分
-        var sec = Math.floor(nowTime / 1000 % 60); // 秒
-        var ms = Math.floor((nowTime % 1000) / 10); // ミリ秒
+        var min = Math.floor(nowTime / 1000 / 60);
+        var sec = Math.floor((nowTime / 1000) % 60);
+        var ms = Math.floor((nowTime % 1000) / 10);
 
-        // 1秒ごとに音を鳴らす
         if (sec !== lastSecond) {
           lastSecond = sec;
-          if(isEnableSound) playBeep();
+          if (isEnableSound) playBeep();
         }
 
         SetTime(min, sec, ms);
       }
     }
   }
-}
+};
 
 setInterval(countdown, 1);
 
-function SetTime(m, s, ms){
-  $('.js-countdown-min').text(String(m).padStart(2, '0'));
-  $('.js-countdown-sec').text(String(s).padStart(2, '0'));
-  $('.js-countdown-ms').text(String(ms).padStart(2, '0'));
+function SetTime(m, s, ms) {
+  $(".js-countdown-min").text(String(m).padStart(2, "0"));
+  $(".js-countdown-sec").text(String(s).padStart(2, "0"));
+  $(".js-countdown-ms").text(String(ms).padStart(2, "0"));
+}
+
+function syncDirectInputBufferFromCurrentTime() {
+  var minStr = String(Number(setMin || 0)).padStart(2, "0");
+  var secStr = String(Number(setSec || 0)).padStart(2, "0");
+  var msStr = String(Number(setMs || 0)).padStart(2, "0");
+  directInputBuffer = (minStr + secStr + msStr).slice(-6);
+}
+
+function applyDirectInputBuffer() {
+  var min = Number(directInputBuffer.slice(0, 2));
+  var sec = Number(directInputBuffer.slice(2, 4));
+  var ms = Number(directInputBuffer.slice(4, 6));
+
+  setMin = min;
+  setSec = sec;
+  setMs = ms;
+
+  $("#set_min").val(setMin);
+  $("#set_sec").val(setSec);
+  $("#set_ms").val(setMs);
+
+  targetTime = setMin * 60 * 1000 + setSec * 1000 + setMs * 10;
+  nowTime = targetTime;
+  startTime = targetTime;
+  continueFlag = false;
+  runFlag = false;
+  startFlag = false;
+  stopFlag = false;
+  resetFlag = false;
+
+  SetTime(setMin, setSec, setMs);
+}
+
+function pushDirectInputDigit(digit) {
+  directInputBuffer = (directInputBuffer + digit).slice(-6);
+  applyDirectInputBuffer();
+}
+
+function popDirectInputDigit() {
+  directInputBuffer = ("0" + directInputBuffer.slice(0, 5)).slice(-6);
+  applyDirectInputBuffer();
+}
+
+function canUseDirectInput(e) {
+  if (runFlag) return false;
+  if (isOpenSetting) return false;
+
+  var tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) {
+    return false;
+  }
+
+  return true;
 }
 
 const ClickResetArea = () => {
   ResetTimer();
-}
+};
 
 const ClickToggleArea = () => {
   ToggleTimer();
-}
+};
 
 const ClickSettingArea = () => {
   OpenSettings();
-}
+};
 
 const ClickApplyButton = () => {
   ResetTimer();
-}
+};
 
 const ClickGenerateButton = () => {
-  if(!roomId){
+  if (!roomId) {
     roomId = crypto.randomUUID();
-    var query = { "room":roomId };
-    SetUrlQueries(query)
+    var query = { room: roomId };
+    SetUrlQueries(query);
     JoinRoom();
   }
 
-   const qrArea = document.getElementById('qrcode');
-    qrArea.innerHTML = ""; // すでにあるQRを消す
-    new QRCode(qrArea, {
+  const qrArea = document.getElementById("qrcode");
+  qrArea.innerHTML = "";
+  new QRCode(qrArea, {
     text: window.location.href,
     width: 128,
-    height: 128
+    height: 128,
   });
-}
+};
 
 const ToggleEnableSound = () => {
-  isEnableSound = $("#set_enable_sound").prop('checked');
-}
+  isEnableSound = $("#set_enable_sound").prop("checked");
+};
 
 document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("beep_waveform").addEventListener("change", function () {
@@ -247,13 +339,13 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   document.getElementById("beep_feed").addEventListener("input", function () {
-    beepDuration = this.value / 1000;
-    document.getElementById("beep_feed_value").textContent = beepDuration;
+    beepFeed = this.value / 1000;
+    document.getElementById("beep_feed_value").textContent = beepFeed;
   });
 });
 
 const ResetTimer = () => {
-  if(isConnected){
+  if (isConnected) {
     socket.emit("controll", {
       room: roomId,
       controll: "reset",
@@ -261,85 +353,103 @@ const ResetTimer = () => {
       setSec: $("#set_sec").val(),
       setMs: $("#set_ms").val(),
     });
-  }else{
+  } else {
     resetFlag = true;
   }
-}
+};
 
 const ToggleTimer = () => {
-  if(runFlag){
-    if(isConnected){
+  if (runFlag) {
+    if (isConnected) {
+      const syncedNow = quantizeToDisplayUnit(nowTime);
+      nowTime = syncedNow;
+      startTime = syncedNow;
+      SetTime(
+        Math.floor(syncedNow / 1000 / 60),
+        Math.floor((syncedNow / 1000) % 60),
+        Math.floor((syncedNow % 1000) / 10)
+      );
+
       socket.emit("controll", {
         room: roomId,
-        controll: "stop"
+        controll: "stop",
+        startTime: syncedNow
       });
-    }else{
+    } else {
       stopFlag = true;
     }
-  }else{
-    if(isConnected){
+  } else {
+    if (isConnected) {
       socket.emit("controll", {
         room: roomId,
-        controll: "start"
+        controll: "start",
+        startTime: Date.now()
       });
-    }else{
+    } else {
       nowTime = targetTime;
-      if(nowTime > 0){
+      if (nowTime > 0) {
         startFlag = true;
       }
     }
   }
-}
+};
 
 const OpenSettings = () => {
-  if(!isOpenSetting){
+  if (!isOpenSetting) {
     $(".hidden_area")[0].style.opacity = 0.2;
-    $(".setting_window").css({
-      "opacity":"0",
-      "display":"none",
-    }).show().animate({opacity:1}, 500)
+    $(".setting_window")
+      .css({
+        opacity: "0",
+        display: "none",
+      })
+      .show()
+      .animate({ opacity: 1 }, 500);
     isOpenSetting = true;
-  }else{
+  } else {
     $(".hidden_area")[0].style.opacity = 0;
-    $(".setting_window").css({
-      "opacity":"1",
-      "display":"block",
-    }).animate({opacity:0}, 500, () => {$(".setting_window").hide()})
+    $(".setting_window")
+      .css({
+        opacity: "1",
+        display: "block",
+      })
+      .animate({ opacity: 0 }, 500, () => {
+        $(".setting_window").hide();
+      });
     isOpenSetting = false;
   }
-}
+};
 
 const ResetTime = () => {
-  targetTime = setMin*60*1000 + setSec*1000 + setMs*10;
+  targetTime = setMin * 60 * 1000 + setSec * 1000 + setMs * 10;
   startTime = targetTime;
   SetTime(setMin, setSec, setMs);
-}
+};
 
 const GetSettingTime = () => {
-  setMin = $("#set_min").val();
-  setSec = $("#set_sec").val();
-  setMs = $("#set_ms").val();
-}
+  setMin = Number($("#set_min").val());
+  setSec = Number($("#set_sec").val());
+  setMs = Number($("#set_ms").val());
+};
 
 function GetUrlQueries() {
-  var queryStr = window.location.search.slice(1);  // 文頭?を除外
-  queries = {};
+  var queryStr = window.location.search.slice(1);
+  var queries = {};
 
   if (!queryStr) {
     return queries;
   }
 
-  queryStr.split('&').forEach(function(queryStr) {
-    var queryArr = queryStr.split('=');
+  queryStr.split("&").forEach(function (queryStr) {
+    var queryArr = queryStr.split("=");
     queries[queryArr[0]] = queryArr[1];
   });
-  
+
   return queries;
 }
 
-function SetUrlQueries(dict){
+function SetUrlQueries(dict) {
   var url = new URL(location.href);
-  for (key in dict){
+  for (key in dict) {
     url.searchParams.set(key, dict[key]);
   }
   window.history.replaceState(null, null, url);
@@ -354,73 +464,116 @@ const JoinRoom = () => {
   var url = window.location.href;
   $("#set_room_url_txt").val(url);
   $("#set_room_url_btn").prop("disabled", true);
+
   socket.emit('join', {
     room: roomId,
     setMin: setMin,
     setSec: setSec,
     setMs: setMs,
+    startTime: runFlag ? Date.now() : startTime,
+    isStart: runFlag,
     backGroundColor: backGroundColor,
     timerForeColor: timerForeColor,
     timerBackColor: timerBackColor,
     fontSize: fontSize
   });
 }
-
-socket.on("hello", function(msg){
-  setMin = msg.setMin;
-  setSec = msg.setSec;
-  setMs = msg.setMs;
-  backGroundColor = msg.backGroundColor;
-  timerBackColor = msg.timerBackColor;
-  timerForeColor = msg.timerForeColor;
-  fontSize = msg.fontSize;
-  InitSettings();
-  isConnected = true;
-
-  nowTime = msg.remainTime;
-  if(msg.isStart && nowTime > 0){
-    startFlag = true;
+socket.on("connect", function () {
+  if (roomId) {
+    JoinRoom();
   }
 });
 
-socket.on('controll',function(msg){
-  switch(msg.controll){
-    case 'start':
-        nowTime = targetTime;
-        if(nowTime > 0){
-          startFlag = true;
-        }
+socket.on("disconnect", function () {
+  isConnected = false;
+});
+
+socket.on("hello", function(msg){
+  setMin = Number(msg.setMin);
+  setSec = Number(msg.setSec);
+  setMs = Number(msg.setMs);
+  backGroundColor = msg.backGroundColor;
+  timerBackColor = msg.timerBackColor;
+  timerForeColor = msg.timerForeColor;
+  fontSize = Number(msg.fontSize);
+
+  InitSettings();
+  isConnected = true;
+
+  targetTime = setMin * 60 * 1000 + setSec * 1000 + setMs * 10;
+  nowTime = Number(msg.remainTime);
+
+  if (msg.isStart && nowTime > 0) {
+    continueFlag = true;
+    runFlag = false;
+    startTime = nowTime;
+    startFlag = true;
+  } else {
+    runFlag = false;
+    startFlag = false;
+    stopFlag = false;
+    startTime = nowTime;
+    SetTime(
+      Math.floor(nowTime / 1000 / 60),
+      Math.floor(nowTime / 1000 % 60),
+      Math.floor((nowTime % 1000) / 10)
+    );
+  }
+});
+
+socket.on("controll", function (msg) {
+  switch (msg.controll) {
+    case "start":
+      if (!runFlag && nowTime > 0) {
+        startFlag = true;
+      }
       break;
-    case 'stop':
+
+    case "stop":
+      if (typeof msg.startTime === "number") {
+        const syncedNow = quantizeToDisplayUnit(msg.startTime);
+        nowTime = syncedNow;
+        startTime = syncedNow;
+        SetTime(
+          Math.floor(syncedNow / 1000 / 60),
+          Math.floor((syncedNow / 1000) % 60),
+          Math.floor((syncedNow % 1000) / 10)
+        );
+      }
       stopFlag = true;
       break;
-    case 'reset':
+
+    case "reset":
       $("#set_min").val(msg.setMin);
       $("#set_sec").val(msg.setSec);
       $("#set_ms").val(msg.setMs);
       resetFlag = true;
+      syncDirectInputBufferFromCurrentTime();
       break;
   }
 });
 
-socket.on('settings', function(msg){
-  switch(msg.settings){
-    case 'fontsize':
+socket.on("settings", function (msg) {
+  switch (msg.settings) {
+    case "fontsize":
       fontSize = msg.fontsize;
       $("#set_font_size").val(fontSize);
       $("#fontsize").text(fontSize);
-      $(".countdown").css("font-size", fontSize+"vw");
+      $(".countdown").css("font-size", fontSize + "vw");
       break;
+
     case "backGroundColor":
       backGroundColor = msg.backGroundColor;
       $("#set_back_col").val(backGroundColor);
       $("body").css("background-color", backGroundColor);
       break;
+
     case "timerForeColor":
       timerForeColor = msg.timerForeColor;
       $("#set_timer_fore_col").val(timerForeColor);
       $(".countdown").css("color", timerForeColor);
       break;
+
     case "timerBackColor":
       timerBackColor = msg.timerBackColor;
       $("#set_timer_back_col").val(timerBackColor);
@@ -428,8 +581,33 @@ socket.on('settings', function(msg){
       break;
   }
 });
-    
+
+socket.on("heartbeat", function (_msg) {
+  // 応答確認用。現状は受けるだけでOK
+});
+
 document.addEventListener("keydown", (e) => {
+  if (canUseDirectInput(e)) {
+    if (/^\d$/.test(e.key)) {
+      e.preventDefault();
+      pushDirectInputDigit(e.key);
+      return;
+    }
+
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      popDirectInputDigit();
+      return;
+    }
+
+    if (e.key === "Delete") {
+      e.preventDefault();
+      directInputBuffer = "000000";
+      applyDirectInputBuffer();
+      return;
+    }
+  }
+
   switch (e.code) {
     case "KeyS":
       OpenSettings();
@@ -440,9 +618,8 @@ document.addEventListener("keydown", (e) => {
       break;
 
     case "Space":
-      e.preventDefault(); // スクロール防止
+      e.preventDefault();
       ToggleTimer();
-      // 処理
       break;
   }
 });
