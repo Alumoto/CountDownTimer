@@ -24,14 +24,12 @@ var timerBackColor = "#000000";
 var fontSize = 15;
 
 var roomId;
+var directInputBuffer = "000000";
 
 var socket = io();
 var isConnected = false;
 var heartbeatTimer = null;
 
-var directInputBuffer = "000000";
-
-// Web Audio API の初期化
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
 const playBeep = () => {
@@ -51,8 +49,11 @@ const playBeep = () => {
   oscillator.stop(audioContext.currentTime + beepDuration);
 };
 
-// 1秒ごとにビープ音を鳴らす
 var lastSecond = -1;
+
+function quantizeToDisplayUnit(ms) {
+  return Math.max(Math.floor(ms / 10) * 10, 0);
+}
 
 function startHeartbeat() {
   stopHeartbeat();
@@ -73,14 +74,58 @@ function stopHeartbeat() {
   }
 }
 
-function syncRunningTimerFromRemain(remainTime) {
-  nowTime = Math.max(Number(remainTime || 0), 0);
-  startTime = nowTime;
-  startDate = new Date();
-  continueFlag = true;
-  runFlag = nowTime > 0;
+function syncDirectInputBufferFromCurrentTime() {
+  var minStr = String(Number(setMin || 0)).padStart(2, "0");
+  var secStr = String(Number(setSec || 0)).padStart(2, "0");
+  var msStr = String(Number(setMs || 0)).padStart(2, "0");
+  directInputBuffer = (minStr + secStr + msStr).slice(-6);
+}
+
+function applyDirectInputBuffer() {
+  var min = Number(directInputBuffer.slice(0, 2));
+  var sec = Number(directInputBuffer.slice(2, 4));
+  var ms = Number(directInputBuffer.slice(4, 6));
+
+  setMin = min;
+  setSec = sec;
+  setMs = ms;
+
+  $("#set_min").val(setMin);
+  $("#set_sec").val(setSec);
+  $("#set_ms").val(setMs);
+
+  targetTime = setMin * 60 * 1000 + setSec * 1000 + setMs * 10;
+  nowTime = targetTime;
+  startTime = targetTime;
+  continueFlag = false;
+  runFlag = false;
   startFlag = false;
   stopFlag = false;
+  resetFlag = false;
+
+  SetTime(setMin, setSec, setMs);
+}
+
+function pushDirectInputDigit(digit) {
+  directInputBuffer = (directInputBuffer + digit).slice(-6);
+  applyDirectInputBuffer();
+}
+
+function popDirectInputDigit() {
+  directInputBuffer = ("0" + directInputBuffer.slice(0, 5)).slice(-6);
+  applyDirectInputBuffer();
+}
+
+function canUseDirectInput(e) {
+  if (runFlag) return false;
+  if (isOpenSetting) return false;
+
+  var tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) {
+    return false;
+  }
+
+  return true;
 }
 
 $("#set_font_size").on("input", () => {
@@ -106,6 +151,7 @@ window.onload = () => {
   } else {
     InitSettings();
     ResetTime();
+    syncDirectInputBufferFromCurrentTime();
   }
 };
 
@@ -164,10 +210,6 @@ const TimerBackColorChange = () => {
     $(".countdown").css("background-color", timerBackColor);
   }
 };
-
-function quantizeToDisplayUnit(ms) {
-  return Math.max(Math.floor(ms / 10) * 10, 0);
-}
 
 const countdown = () => {
   if (nowTime < 0) {
@@ -230,60 +272,6 @@ function SetTime(m, s, ms) {
   $(".js-countdown-min").text(String(m).padStart(2, "0"));
   $(".js-countdown-sec").text(String(s).padStart(2, "0"));
   $(".js-countdown-ms").text(String(ms).padStart(2, "0"));
-}
-
-function syncDirectInputBufferFromCurrentTime() {
-  var minStr = String(Number(setMin || 0)).padStart(2, "0");
-  var secStr = String(Number(setSec || 0)).padStart(2, "0");
-  var msStr = String(Number(setMs || 0)).padStart(2, "0");
-  directInputBuffer = (minStr + secStr + msStr).slice(-6);
-}
-
-function applyDirectInputBuffer() {
-  var min = Number(directInputBuffer.slice(0, 2));
-  var sec = Number(directInputBuffer.slice(2, 4));
-  var ms = Number(directInputBuffer.slice(4, 6));
-
-  setMin = min;
-  setSec = sec;
-  setMs = ms;
-
-  $("#set_min").val(setMin);
-  $("#set_sec").val(setSec);
-  $("#set_ms").val(setMs);
-
-  targetTime = setMin * 60 * 1000 + setSec * 1000 + setMs * 10;
-  nowTime = targetTime;
-  startTime = targetTime;
-  continueFlag = false;
-  runFlag = false;
-  startFlag = false;
-  stopFlag = false;
-  resetFlag = false;
-
-  SetTime(setMin, setSec, setMs);
-}
-
-function pushDirectInputDigit(digit) {
-  directInputBuffer = (directInputBuffer + digit).slice(-6);
-  applyDirectInputBuffer();
-}
-
-function popDirectInputDigit() {
-  directInputBuffer = ("0" + directInputBuffer.slice(0, 5)).slice(-6);
-  applyDirectInputBuffer();
-}
-
-function canUseDirectInput(e) {
-  if (runFlag) return false;
-  if (isOpenSetting) return false;
-
-  var tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
-  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) {
-    return false;
-  }
-
-  return true;
 }
 
 const ClickResetArea = () => {
@@ -373,7 +361,7 @@ const ToggleTimer = () => {
       socket.emit("controll", {
         room: roomId,
         controll: "stop",
-        startTime: syncedNow
+        startTime: syncedNow,
       });
     } else {
       stopFlag = true;
@@ -383,7 +371,7 @@ const ToggleTimer = () => {
       socket.emit("controll", {
         room: roomId,
         controll: "start",
-        startTime: Date.now()
+        startTime: Date.now(),
       });
     } else {
       nowTime = targetTime;
@@ -461,23 +449,28 @@ function copyToClipboard() {
 }
 
 const JoinRoom = () => {
+  if (!roomId) return;
+
   var url = window.location.href;
   $("#set_room_url_txt").val(url);
   $("#set_room_url_btn").prop("disabled", true);
 
-  socket.emit('join', {
+  socket.emit("join", {
     room: roomId,
     setMin: setMin,
     setSec: setSec,
     setMs: setMs,
-    startTime: runFlag ? Date.now() : startTime,
+    startTime: typeof nowTime === "number" ? nowTime : targetTime,
     isStart: runFlag,
     backGroundColor: backGroundColor,
     timerForeColor: timerForeColor,
     timerBackColor: timerBackColor,
-    fontSize: fontSize
+    fontSize: fontSize,
   });
-}
+
+  startHeartbeat();
+};
+
 socket.on("connect", function () {
   if (roomId) {
     JoinRoom();
@@ -488,7 +481,7 @@ socket.on("disconnect", function () {
   isConnected = false;
 });
 
-socket.on("hello", function(msg){
+socket.on("hello", function (msg) {
   setMin = Number(msg.setMin);
   setSec = Number(msg.setSec);
   setMs = Number(msg.setMs);
@@ -501,24 +494,28 @@ socket.on("hello", function(msg){
   isConnected = true;
 
   targetTime = setMin * 60 * 1000 + setSec * 1000 + setMs * 10;
-  nowTime = Number(msg.remainTime);
+  nowTime = Number(msg.remainTime || 0);
+  startTime = nowTime;
 
   if (msg.isStart && nowTime > 0) {
     continueFlag = true;
     runFlag = false;
-    startTime = nowTime;
     startFlag = true;
+    stopFlag = false;
   } else {
     runFlag = false;
     startFlag = false;
     stopFlag = false;
-    startTime = nowTime;
+    continueFlag = nowTime !== targetTime;
+
     SetTime(
       Math.floor(nowTime / 1000 / 60),
-      Math.floor(nowTime / 1000 % 60),
+      Math.floor((nowTime / 1000) % 60),
       Math.floor((nowTime % 1000) / 10)
     );
   }
+
+  syncDirectInputBufferFromCurrentTime();
 });
 
 socket.on("controll", function (msg) {
@@ -548,7 +545,6 @@ socket.on("controll", function (msg) {
       $("#set_sec").val(msg.setSec);
       $("#set_ms").val(msg.setMs);
       resetFlag = true;
-      syncDirectInputBufferFromCurrentTime();
       break;
   }
 });
@@ -583,7 +579,6 @@ socket.on("settings", function (msg) {
 });
 
 socket.on("heartbeat", function (_msg) {
-  // 応答確認用。現状は受けるだけでOK
 });
 
 document.addEventListener("keydown", (e) => {

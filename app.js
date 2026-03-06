@@ -90,7 +90,8 @@ io.on("connection", function (socket) {
 
     var remainTime = getRemainTime(roomInfo);
 
-    io.to(msg.room).emit("hello", {
+    // joinした本人だけに返す
+    socket.emit("hello", {
       room: roomInfo.room,
       setMin: roomInfo.setMin,
       setSec: roomInfo.setSec,
