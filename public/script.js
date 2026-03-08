@@ -492,12 +492,20 @@ const JoinRoom = () => {
   $("#set_room_url_txt").val(url);
   $("#set_room_url_btn").prop("disabled", true);
 
+  const remain = currentRemainTime();
+
+  // 実行中は「開始絶対時刻」を送る
+  // 停止中は「残り時間」を送る
+  const joinStartTime = runFlag
+    ? Date.now() - Math.max(targetTime - remain, 0)
+    : remain;
+
   socket.emit("join", {
     room: roomId,
     setMin: Number(setMin),
     setSec: Number(setSec),
     setMs: Number(setMs),
-    startTime: currentRemainTime(),
+    startTime: joinStartTime,
     isStart: runFlag,
     backGroundColor: backGroundColor,
     timerForeColor: timerForeColor,
