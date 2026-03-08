@@ -30,6 +30,8 @@ var socket = io();
 var isConnected = false;
 var heartbeatTimer = null;
 
+var resyncTimer = null;
+
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
 const playBeep = () => {
@@ -506,15 +508,34 @@ const JoinRoom = () => {
   startHeartbeat();
 };
 
+function startResyncTimer() {
+  stopResyncTimer();
+
+  resyncTimer = setInterval(() => {
+    if (runFlag && roomId && socket.connected) {
+      JoinRoom();
+    }
+  }, 60000);
+}
+
+function stopResyncTimer() {
+  if (resyncTimer) {
+    clearInterval(resyncTimer);
+    resyncTimer = null;
+  }
+}
+
 socket.on("connect", function () {
   if (roomId) {
     JoinRoom();
   }
+  startResyncTimer();
 });
 
 socket.on("disconnect", function () {
   isConnected = false;
   stopHeartbeat();
+  stopResyncTimer();
 });
 
 socket.on("hello", function(msg) {
@@ -540,6 +561,7 @@ socket.on("hello", function(msg) {
     startFlag = false;
     stopFlag = false;
     continueFlag = nowTime !== targetTime;
+    startTime = nowTime;
 
     SetTime(
       Math.floor(nowTime / 1000 / 60),
