@@ -147,7 +147,6 @@ window.onload = () => {
 
   if (queries["room"]) {
     roomId = queries["room"];
-    JoinRoom();
   } else {
     InitSettings();
     ResetTime();
@@ -456,6 +455,7 @@ function copyToClipboard() {
 
 const JoinRoom = () => {
   if (!roomId) return;
+  if (!socket.connected) return;
 
   var url = window.location.href;
   $("#set_room_url_txt").val(url);
@@ -485,6 +485,7 @@ socket.on("connect", function () {
 
 socket.on("disconnect", function () {
   isConnected = false;
+  stopHeartbeat();
 });
 
 socket.on("hello", function (msg) {
