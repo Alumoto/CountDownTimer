@@ -6,10 +6,10 @@ var runFlag = false;
 var setMin = 0;
 var setSec = 0;
 var setMs = 0;
-var startTime;
+var startTime = 0;
 var startDate;
-var targetTime;
-var nowTime;
+var targetTime = 0;
+var nowTime = 0;
 
 var isEnableSound = false;
 var beepWaveform = "sine";
@@ -52,7 +52,15 @@ const playBeep = () => {
 var lastSecond = -1;
 
 function quantizeToDisplayUnit(ms) {
-  return Math.max(Math.floor(ms / 10) * 10, 0);
+  return Math.max(Math.floor(Number(ms || 0) / 10) * 10, 0);
+}
+
+function currentRemainTime() {
+  if (runFlag && startDate) {
+    const elapsed = Date.now() - startDate.getTime();
+    return quantizeToDisplayUnit(startTime - elapsed);
+  }
+  return quantizeToDisplayUnit(nowTime);
 }
 
 function startHeartbeat() {
@@ -120,12 +128,22 @@ function canUseDirectInput(e) {
   if (runFlag) return false;
   if (isOpenSetting) return false;
 
-  var tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : "";
+  var tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) {
     return false;
   }
 
   return true;
+}
+
+function resumeRunningTimerFromRemain(remainTime) {
+  nowTime = quantizeToDisplayUnit(remainTime);
+  startTime = nowTime;
+  startDate = new Date();
+  continueFlag = true;
+  runFlag = nowTime > 0;
+  startFlag = false;
+  stopFlag = false;
 }
 
 $("#set_font_size").on("input", () => {
@@ -136,7 +154,7 @@ $("#set_font_size").on("input", () => {
       fontsize: $("#set_font_size").val(),
     });
   } else {
-    fontSize = $("#set_font_size").val();
+    fontSize = Number($("#set_font_size").val());
     $("#fontsize").text(fontSize);
     $(".countdown").css("font-size", fontSize + "vw");
   }
@@ -235,11 +253,11 @@ const countdown = () => {
   }
 
   if (resetFlag) {
+    GetSettingTime();
+    ResetTime();
     nowTime = targetTime;
     runFlag = false;
     continueFlag = false;
-    GetSettingTime();
-    ResetTime();
     SetTime(setMin, setSec, setMs);
     syncDirectInputBufferFromCurrentTime();
     resetFlag = false;
@@ -247,20 +265,27 @@ const countdown = () => {
 
   if (runFlag) {
     var nowSubTime = new Date().getTime() - startDate.getTime();
-    if (nowSubTime != 0) {
+    if (nowSubTime !== 0) {
       nowTime = quantizeToDisplayUnit(startTime - nowSubTime);
-      if (nowTime >= 0) {
-        var min = Math.floor(nowTime / 1000 / 60);
-        var sec = Math.floor((nowTime / 1000) % 60);
-        var ms = Math.floor((nowTime % 1000) / 10);
 
-        if (sec !== lastSecond) {
-          lastSecond = sec;
-          if (isEnableSound) playBeep();
-        }
-
-        SetTime(min, sec, ms);
+      if (nowTime <= 0) {
+        nowTime = 0;
+        runFlag = false;
+        continueFlag = true;
+        SetTime(0, 0, 0);
+        return;
       }
+
+      var min = Math.floor(nowTime / 1000 / 60);
+      var sec = Math.floor((nowTime / 1000) % 60);
+      var ms = Math.floor((nowTime % 1000) / 10);
+
+      if (sec !== lastSecond) {
+        lastSecond = sec;
+        if (isEnableSound) playBeep();
+      }
+
+      SetTime(min, sec, ms);
     }
   }
 };
@@ -294,6 +319,9 @@ const ClickGenerateButton = () => {
     roomId = crypto.randomUUID();
     var query = { room: roomId };
     SetUrlQueries(query);
+  }
+
+  if (socket.connected) {
     JoinRoom();
   }
 
@@ -316,17 +344,17 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   document.getElementById("beep_frequency").addEventListener("input", function () {
-    beepFrequency = this.value;
+    beepFrequency = Number(this.value);
     document.getElementById("beep_frequency_value").textContent = beepFrequency;
   });
 
   document.getElementById("beep_duration").addEventListener("input", function () {
-    beepDuration = this.value / 1000;
+    beepDuration = Number(this.value) / 1000;
     document.getElementById("beep_duration_value").textContent = beepDuration;
   });
 
   document.getElementById("beep_feed").addEventListener("input", function () {
-    beepFeed = this.value / 1000;
+    beepFeed = Number(this.value) / 1000;
     document.getElementById("beep_feed_value").textContent = beepFeed;
   });
 });
@@ -348,7 +376,7 @@ const ResetTimer = () => {
 const ToggleTimer = () => {
   if (runFlag) {
     if (isConnected) {
-      const syncedNow = quantizeToDisplayUnit(nowTime);
+      const syncedNow = currentRemainTime();
 
       nowTime = syncedNow;
       startTime = syncedNow;
@@ -366,7 +394,7 @@ const ToggleTimer = () => {
       socket.emit("controll", {
         room: roomId,
         controll: "stop",
-        startTime: syncedNow,
+        startTime: syncedNow
       });
     } else {
       stopFlag = true;
@@ -376,7 +404,7 @@ const ToggleTimer = () => {
       socket.emit("controll", {
         room: roomId,
         controll: "start",
-        startTime: Date.now(),
+        startTime: Date.now()
       });
     } else {
       nowTime = targetTime;
@@ -413,9 +441,10 @@ const OpenSettings = () => {
 };
 
 const ResetTime = () => {
-  targetTime = setMin * 60 * 1000 + setSec * 1000 + setMs * 10;
+  targetTime = Number(setMin) * 60 * 1000 + Number(setSec) * 1000 + Number(setMs) * 10;
   startTime = targetTime;
-  SetTime(setMin, setSec, setMs);
+  nowTime = targetTime;
+  SetTime(Number(setMin), Number(setSec), Number(setMs));
 };
 
 const GetSettingTime = () => {
@@ -432,7 +461,7 @@ function GetUrlQueries() {
     return queries;
   }
 
-  queryStr.split("&").forEach(function (queryStr) {
+  queryStr.split("&").forEach(function(queryStr) {
     var queryArr = queryStr.split("=");
     queries[queryArr[0]] = queryArr[1];
   });
@@ -463,15 +492,15 @@ const JoinRoom = () => {
 
   socket.emit("join", {
     room: roomId,
-    setMin: setMin,
-    setSec: setSec,
-    setMs: setMs,
-    startTime: typeof nowTime === "number" ? nowTime : targetTime,
+    setMin: Number(setMin),
+    setSec: Number(setSec),
+    setMs: Number(setMs),
+    startTime: currentRemainTime(),
     isStart: runFlag,
     backGroundColor: backGroundColor,
     timerForeColor: timerForeColor,
     timerBackColor: timerBackColor,
-    fontSize: fontSize,
+    fontSize: Number(fontSize)
   });
 
   startHeartbeat();
@@ -488,7 +517,7 @@ socket.on("disconnect", function () {
   stopHeartbeat();
 });
 
-socket.on("hello", function (msg) {
+socket.on("hello", function(msg) {
   setMin = Number(msg.setMin);
   setSec = Number(msg.setSec);
   setMs = Number(msg.setMs);
@@ -500,15 +529,12 @@ socket.on("hello", function (msg) {
   InitSettings();
   isConnected = true;
 
-  targetTime = setMin * 60 * 1000 + setSec * 1000 + setMs * 10;
-  nowTime = Number(msg.remainTime || 0);
+  targetTime = Number(setMin) * 60 * 1000 + Number(setSec) * 1000 + Number(setMs) * 10;
+  nowTime = quantizeToDisplayUnit(msg.remainTime || 0);
   startTime = nowTime;
 
   if (msg.isStart && nowTime > 0) {
-    continueFlag = true;
-    runFlag = false;
-    startFlag = true;
-    stopFlag = false;
+    resumeRunningTimerFromRemain(nowTime);
   } else {
     runFlag = false;
     startFlag = false;
@@ -525,7 +551,7 @@ socket.on("hello", function (msg) {
   syncDirectInputBufferFromCurrentTime();
 });
 
-socket.on("controll", function (msg) {
+socket.on("controll", function(msg) {
   switch (msg.controll) {
     case "start":
       if (!runFlag && nowTime > 0) {
@@ -538,6 +564,7 @@ socket.on("controll", function (msg) {
         const syncedNow = quantizeToDisplayUnit(msg.startTime);
         nowTime = syncedNow;
         startTime = syncedNow;
+
         SetTime(
           Math.floor(syncedNow / 1000 / 60),
           Math.floor((syncedNow / 1000) % 60),
@@ -556,10 +583,10 @@ socket.on("controll", function (msg) {
   }
 });
 
-socket.on("settings", function (msg) {
+socket.on("settings", function(msg) {
   switch (msg.settings) {
     case "fontsize":
-      fontSize = msg.fontsize;
+      fontSize = Number(msg.fontsize);
       $("#set_font_size").val(fontSize);
       $("#fontsize").text(fontSize);
       $(".countdown").css("font-size", fontSize + "vw");
