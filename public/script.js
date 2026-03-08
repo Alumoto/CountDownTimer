@@ -350,8 +350,14 @@ const ToggleTimer = () => {
   if (runFlag) {
     if (isConnected) {
       const syncedNow = quantizeToDisplayUnit(nowTime);
+
       nowTime = syncedNow;
       startTime = syncedNow;
+      runFlag = false;
+      stopFlag = false;
+      startFlag = false;
+      continueFlag = true;
+
       SetTime(
         Math.floor(syncedNow / 1000 / 60),
         Math.floor((syncedNow / 1000) % 60),
