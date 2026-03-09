@@ -518,12 +518,6 @@ const JoinRoom = () => {
 
 function startResyncTimer() {
   stopResyncTimer();
-
-  resyncTimer = setInterval(() => {
-    if (runFlag && roomId && socket.connected) {
-      JoinRoom();
-    }
-  }, 60000);
 }
 
 function stopResyncTimer() {
@@ -559,7 +553,12 @@ socket.on("hello", function(msg) {
   isConnected = true;
 
   targetTime = Number(setMin) * 60 * 1000 + Number(setSec) * 1000 + Number(setMs) * 10;
-  nowTime = quantizeToDisplayUnit(msg.remainTime || 0);
+
+  const serverRemainTime = Number(msg.remainTime);
+  nowTime = Number.isFinite(serverRemainTime)
+    ? quantizeToDisplayUnit(serverRemainTime)
+    : quantizeToDisplayUnit(targetTime);
+
   startTime = nowTime;
 
   if (msg.isStart && nowTime > 0) {
