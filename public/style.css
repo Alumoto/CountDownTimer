@@ -1,100 +1,134 @@
-@charset "UTF-8";
 @font-face {
   font-family: 'DSEG7Classic-BoldItalic';
   src: url("font/DSEG7Classic-BoldItalic.woff") format("woff");
+  font-display: block;
 }
 
 html {
-  -ms-overflow-style: none;
-  /* IE, Edge 対応 */
-  scrollbar-width: none;
-  /* Firefox 対応 */
+  width: 100%;
+  height: 100%;
   overflow: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 html::-webkit-scrollbar {
   display: none;
-  /* Chrome, Safari 対応 */
 }
 
 body {
+  width: 100%;
+  height: 100%;
   margin: 0;
-  background-color: black;
+  overflow: hidden;
+  background-color: #000;
 }
 
 .container {
+  position: relative;
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
+  background-color: #000;
 }
 
 .countdown {
-  color: red;
-  background-color: black;
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow: visible;
+  color: #f00;
+  background-color: #000;
   font-family: 'DSEG7Classic-BoldItalic';
   font-size: 15vw;
+  line-height: 1;
+  letter-spacing: 0;
   user-select: none;
-  flex-wrap: nowrap;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: auto;
+  -moz-osx-font-smoothing: auto;
   transform: translateZ(0);
-  /* サブピクセルレンダリング対策 */
-  -webkit-font-smoothing: antialiased;
-  /* アンチエイリアスの適用 */
+  backface-visibility: hidden;
+  will-change: contents;
+  contain: layout paint style;
+  isolation: isolate;
 }
 
-span {
+.countdown > span {
   display: inline-block;
-  height: auto;
+  line-height: 1;
+  vertical-align: baseline;
+}
+
+.countdown__time {
+  min-width: 2ch;
+  text-align: center;
+}
+
+.countdown__unit {
+  margin-left: 0.14em;
+  margin-right: 0.14em;
 }
 
 .hidden_area {
   position: absolute;
+  inset: 0;
   opacity: 0;
   transition: opacity 0.5s;
-  left: 0;
-  top: 0;
   text-align: center;
+  z-index: 5;
 }
 
 .hidden_area span {
-  color: white;
+  color: #fff;
   padding-top: 12vh;
   font-size: 4vw;
 }
 
 .reset_area {
   position: absolute;
-  background-color: red;
+  top: 0;
+  left: 0;
   width: 32vw;
   height: 100vh;
-  left: 0px;
+  background-color: red;
 }
 
 .toggle_area {
   position: absolute;
-  background-color: lime;
+  top: 0;
+  left: 32vw;
   width: 36vw;
   height: 100vh;
-  left: 32vw;
+  background-color: lime;
 }
 
 .setting_area {
   position: absolute;
-  background-color: blue;
+  top: 0;
+  left: 68vw;
   width: 32vw;
   height: 100vh;
-  left: 68vw;
+  background-color: blue;
 }
 
 .setting_window {
-  background-color: #b9b9b9;
   position: absolute;
-  display: none;
-  overflow: auto;
   top: 50vh;
   width: 70vw;
   height: 50vh;
+  display: none;
+  overflow: auto;
+  background-color: #b9b9b9;
+  z-index: 10;
 }
 
 h4 {

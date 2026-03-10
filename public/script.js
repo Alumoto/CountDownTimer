@@ -29,8 +29,10 @@ var directInputBuffer = "000000";
 var socket = io();
 var isConnected = false;
 var heartbeatTimer = null;
-
 var resyncTimer = null;
+
+var countdownEl = null;
+var lastRenderedTimeText = "";
 
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -52,6 +54,12 @@ const playBeep = () => {
 };
 
 var lastSecond = -1;
+
+function cacheCountdownElements() {
+  if (!countdownEl) {
+    countdownEl = document.querySelector(".countdown");
+  }
+}
 
 function quantizeToDisplayUnit(ms) {
   return Math.max(Math.floor(Number(ms || 0) / 10) * 10, 0);
@@ -112,6 +120,7 @@ function applyDirectInputBuffer() {
   startFlag = false;
   stopFlag = false;
   resetFlag = false;
+  lastSecond = -1;
 
   SetTime(setMin, setSec, setMs);
 }
@@ -148,6 +157,37 @@ function resumeRunningTimerFromRemain(remainTime) {
   stopFlag = false;
 }
 
+function nudgeCountdownRepaint() {
+  cacheCountdownElements();
+  if (!countdownEl) return;
+
+  const prevOutline = countdownEl.style.outline;
+  const prevTransform = countdownEl.style.transform;
+
+  countdownEl.style.outline = "1px solid transparent";
+  countdownEl.style.transform = "translateZ(0) scale(1.0001)";
+
+  void countdownEl.offsetHeight;
+
+  requestAnimationFrame(() => {
+    if (!countdownEl) return;
+    countdownEl.style.outline = prevOutline;
+    countdownEl.style.transform = prevTransform || "translateZ(0)";
+  });
+}
+
+function applyCountdownFontSize() {
+  cacheCountdownElements();
+  if (!countdownEl) return;
+
+  const adjustedFontSize =
+    Math.abs(Number(fontSize) - 15) < 0.001 ? 14.95 : Number(fontSize);
+
+  countdownEl.style.fontSize = adjustedFontSize + "vw";
+  void countdownEl.offsetWidth;
+  nudgeCountdownRepaint();
+}
+
 $("#set_font_size").on("input", () => {
   if (isConnected) {
     socket.emit("settings", {
@@ -158,11 +198,13 @@ $("#set_font_size").on("input", () => {
   } else {
     fontSize = Number($("#set_font_size").val());
     $("#fontsize").text(fontSize);
-    $(".countdown").css("font-size", fontSize + "vw");
+    applyCountdownFontSize();
   }
 });
 
 window.onload = () => {
+  cacheCountdownElements();
+
   var queries = GetUrlQueries();
 
   if (queries["room"]) {
@@ -175,8 +217,10 @@ window.onload = () => {
 };
 
 const InitSettings = () => {
+  cacheCountdownElements();
+
   $("#fontsize").text(fontSize);
-  $(".countdown").css("font-size", fontSize + "vw");
+  applyCountdownFontSize();
 
   $("#set_min").val(setMin);
   $("#set_sec").val(setSec);
@@ -184,10 +228,14 @@ const InitSettings = () => {
 
   $("#set_back_col").val(backGroundColor);
   $("body").css("background-color", backGroundColor);
+  $(".container").css("background-color", backGroundColor);
+
   $("#set_timer_fore_col").val(timerForeColor);
   $(".countdown").css("color", timerForeColor);
+
   $("#set_timer_back_col").val(timerBackColor);
   $(".countdown").css("background-color", timerBackColor);
+
   $("#set_enable_sound").prop("checked", isEnableSound);
 };
 
@@ -201,6 +249,7 @@ const BackColorChange = () => {
   } else {
     backGroundColor = $("#set_back_col").val();
     $("body").css("background-color", backGroundColor);
+    $(".container").css("background-color", backGroundColor);
   }
 };
 
@@ -244,6 +293,7 @@ const countdown = () => {
       }
       startDate = new Date();
       runFlag = true;
+      lastSecond = -1;
     }
     startFlag = false;
   }
@@ -260,6 +310,7 @@ const countdown = () => {
     nowTime = targetTime;
     runFlag = false;
     continueFlag = false;
+    lastSecond = -1;
     SetTime(setMin, setSec, setMs);
     syncDirectInputBufferFromCurrentTime();
     resetFlag = false;
@@ -274,6 +325,7 @@ const countdown = () => {
         nowTime = 0;
         runFlag = false;
         continueFlag = true;
+        lastSecond = -1;
         SetTime(0, 0, 0);
         return;
       }
@@ -292,12 +344,32 @@ const countdown = () => {
   }
 };
 
-setInterval(countdown, 1);
+setInterval(countdown, 10);
 
 function SetTime(m, s, ms) {
-  $(".js-countdown-min").text(String(m).padStart(2, "0"));
-  $(".js-countdown-sec").text(String(s).padStart(2, "0"));
-  $(".js-countdown-ms").text(String(ms).padStart(2, "0"));
+  cacheCountdownElements();
+  if (!countdownEl) return;
+
+  const minText = String(m).padStart(2, "0");
+  const secText = String(s).padStart(2, "0");
+  const msText = String(ms).padStart(2, "0");
+  const nextText = `${minText}:${secText}:${msText}`;
+
+  if (nextText === lastRenderedTimeText) {
+    return;
+  }
+  lastRenderedTimeText = nextText;
+
+  countdownEl.innerHTML = `
+    <span class="countdown__time js-countdown-min">${minText}</span>
+    <span class="countdown__unit">:</span>
+    <span class="countdown__time js-countdown-sec">${secText}</span>
+    <span class="countdown__unit">:</span>
+    <span class="countdown__time js-countdown-ms">${msText}</span>
+  `;
+
+  void countdownEl.offsetWidth;
+  nudgeCountdownRepaint();
 }
 
 const ClickResetArea = () => {
@@ -341,6 +413,8 @@ const ToggleEnableSound = () => {
 };
 
 document.addEventListener("DOMContentLoaded", function () {
+  cacheCountdownElements();
+
   document.getElementById("beep_waveform").addEventListener("change", function () {
     beepWaveform = this.value;
   });
@@ -386,6 +460,7 @@ const ToggleTimer = () => {
       stopFlag = false;
       startFlag = false;
       continueFlag = true;
+      lastSecond = -1;
 
       SetTime(
         Math.floor(syncedNow / 1000 / 60),
@@ -446,6 +521,7 @@ const ResetTime = () => {
   targetTime = Number(setMin) * 60 * 1000 + Number(setSec) * 1000 + Number(setMs) * 10;
   startTime = targetTime;
   nowTime = targetTime;
+  lastSecond = -1;
   SetTime(Number(setMin), Number(setSec), Number(setMs));
 };
 
@@ -494,8 +570,6 @@ const JoinRoom = () => {
 
   const remain = currentRemainTime();
 
-  // 実行中は「開始絶対時刻」を送る
-  // 停止中は「残り時間」を送る
   const joinStartTime = runFlag
     ? Date.now() - Math.max(targetTime - remain, 0)
     : remain;
@@ -560,6 +634,7 @@ socket.on("hello", function(msg) {
     : quantizeToDisplayUnit(targetTime);
 
   startTime = nowTime;
+  lastSecond = -1;
 
   if (msg.isStart && nowTime > 0) {
     resumeRunningTimerFromRemain(nowTime);
@@ -618,13 +693,14 @@ socket.on("settings", function(msg) {
       fontSize = Number(msg.fontsize);
       $("#set_font_size").val(fontSize);
       $("#fontsize").text(fontSize);
-      $(".countdown").css("font-size", fontSize + "vw");
+      applyCountdownFontSize();
       break;
 
     case "backGroundColor":
       backGroundColor = msg.backGroundColor;
       $("#set_back_col").val(backGroundColor);
       $("body").css("background-color", backGroundColor);
+      $(".container").css("background-color", backGroundColor);
       break;
 
     case "timerForeColor":
